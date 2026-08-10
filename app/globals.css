@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+:root {
+  --background: #030717;
+  --foreground: #f7fbff;
+  --primary: #08bff5;
+  --secondary: #175cff;
+  --accent: #6d28ff;
+  --surface: #0b122a;
+  --muted: #9aa8c7;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-space-mono);
+  --font-display: var(--font-dot-gothic);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 6.5rem; }
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+  background: radial-gradient(circle at 14% 10%, rgba(8,191,245,.13), transparent 26rem), radial-gradient(circle at 88% 22%, rgba(109,40,255,.15), transparent 28rem), var(--background);
+  color: var(--foreground);
+  font-family: var(--font-space-mono), monospace;
+}
+body::before {
+  position: fixed; inset: 0; z-index: -1; content: ""; pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: 64px 64px; mask-image: linear-gradient(to bottom, black, transparent 85%);
+}
+::selection { background: rgba(8,191,245,.35); color: white; }
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.section-shell { width: min(100% - 2rem, 1200px); margin-inline: auto; }
+.deferred-section { content-visibility: auto; contain-intrinsic-size: auto 900px; }
+.motion-reveal { backface-visibility: hidden; }
+.topography-fallback { background: radial-gradient(circle at 22% 18%, rgba(8,191,245,.18), transparent 34%), radial-gradient(circle at 80% 58%, rgba(109,40,255,.2), transparent 42%), #030717; }
+.eyebrow { display: flex; align-items: center; gap: .65rem; color: var(--primary); font-size: .72rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+.eyebrow::before { width: 1.8rem; height: 1px; content: ""; background: linear-gradient(90deg, transparent, var(--primary)); }
+.glass-card { border: 1px solid rgba(255,255,255,.1); background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.025)); box-shadow: 0 28px 90px rgba(0,0,0,.28); backdrop-filter: blur(18px); }
+.gradient-text { background: linear-gradient(100deg, #fff 10%, #bfefff 46%, #8b78ff 100%); background-clip: text; -webkit-background-clip: text; color: transparent; }
+.cta-primary { position: relative; isolation: isolate; overflow: hidden; border-radius: 1rem; background: linear-gradient(110deg, var(--primary), var(--secondary) 55%, var(--accent)); box-shadow: 0 12px 38px rgba(23,92,255,.32); transition: transform 250ms ease, box-shadow 250ms ease; }
+.cta-primary::after { position: absolute; inset: -100% -30%; z-index: -1; content: ""; background: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.48), transparent 58%); transform: translateX(-65%) rotate(10deg); transition: transform 700ms ease; }
+.cta-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(8,191,245,.42); }
+.cta-primary:hover::after { transform: translateX(65%) rotate(10deg); }
+.cta-primary:disabled, .cta-primary:disabled:hover { transform: none; box-shadow: 0 8px 24px rgba(23,92,255,.18); }
+.service-card::before { position: absolute; inset: 0; border-radius: inherit; content: ""; opacity: 0; background: radial-gradient(circle at 50% 0%, rgba(8,191,245,.24), transparent 52%); transition: opacity 300ms ease; }
+.service-card:hover::before { opacity: 1; }
+.service-card:hover { border-color: rgba(8,191,245,.5); box-shadow: 0 22px 68px rgba(23,92,255,.18), inset 0 0 34px rgba(8,191,245,.08); }
+.theme-light .eyebrow { color: #175cff; }
+.theme-light .eyebrow::before { background: linear-gradient(90deg, transparent, #175cff); }
+.theme-light .gradient-text { background: linear-gradient(100deg, #030717 8%, #175cff 52%, #6d28ff 100%); background-clip: text; -webkit-background-clip: text; color: transparent; }
+.review-card-light { border: 1px solid rgba(3,7,23,.1); background: rgba(255,255,255,.76); color: #030717; box-shadow: 0 24px 70px rgba(23,92,255,.1); backdrop-filter: blur(18px); }
+.review-marquee { mask-image: linear-gradient(90deg, transparent, black 6%, black 94%, transparent); }
+.review-track { width: max-content; animation: review-marquee 34s linear infinite; will-change: transform; transform: translate3d(0,0,0); }
+.review-track:hover { animation-play-state: paused; }
+.form-field { width: 100%; border: 1px solid rgba(255,255,255,.11); border-radius: 1rem; background: rgba(255,255,255,.045); padding: .95rem 1rem; color: white; outline: none; transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease; }
+.form-field::placeholder { color: rgba(154,168,199,.58); }
+.form-field:focus { border-color: rgba(8,191,245,.65); background: rgba(8,191,245,.055); box-shadow: 0 0 0 4px rgba(8,191,245,.09); }
+.form-field[aria-invalid="true"] { border-color: rgba(252,165,165,.7); }
+.form-error { color: #fca5a5; font-size: .68rem; font-weight: 700; line-height: 1.45; }
+@keyframes review-marquee { to { transform: translate3d(-50%,0,0); } }
+@media (hover: hover) and (pointer: fine) { .interactive-card:hover { will-change: transform; } }
+@media (max-width: 767px) {
+  .section-shell { width: min(100% - 1.25rem, 1200px); }
+  .glass-card, .review-card-light { backdrop-filter: none; }
+  .dynamic-island-surface { backdrop-filter: blur(10px); }
+  .review-track { animation-duration: 42s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .review-track { animation: none !important; transform: none !important; }
+  .topography-container canvas { display: none !important; }
+  .interactive-card, .motion-reveal, .dynamic-island-surface { will-change: auto !important; }
+}
