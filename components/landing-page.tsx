@@ -521,7 +521,7 @@ function WhatsAppButton() {
   );
 }
 
-export function LandingPage() {
+export default function LandingPage() {
   return (
     <main className="relative overflow-x-clip">
       <Spotlight />
