@@ -483,7 +483,7 @@ function WhatsAppButton() {
     </a>
   );
 }
-
+}
 export function LandingPage() {
   return (
     <main className="relative overflow-x-clip">
