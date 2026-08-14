@@ -10,6 +10,7 @@ Landing page institucional desenvolvida com Next.js, React, TypeScript, Tailwind
 ## Executar localmente
 
 ```bash
+npm install firebase
 pnpm install
 pnpm dev
 ```
