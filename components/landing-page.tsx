@@ -1,5 +1,8 @@
 "use client";
 
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
 import Image from "next/image";
 import { motion, useInView, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -78,20 +81,6 @@ function validateContactForm(form: FormData): { errors: ContactErrors; values: C
   if (values.message.length < 10) errors.message = "Descreva sua necessidade em pelo menos 10 caracteres.";
 
   return { errors, values };
-}
-
-// Envia os dados para a API do seu NX-CRM
-function submitLeadToCrm(values: ContactValues) {
-  void fetch("/api/leads", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...values, website: "", page: window.location.pathname }),
-    keepalive: true,
-  }).then((response) => {
-    if (!response.ok) console.error("Não foi possível registrar o lead no NX-CRM.");
-  }).catch(() => {
-    console.error("Não foi possível registrar o lead no NX-CRM.");
-  });
 }
 
 function Reveal({
@@ -329,7 +318,7 @@ function Services() {
       <Reveal direction="left" className="max-w-3xl">
         <p className="eyebrow">O que fazemos</p>
         <h2 className="mt-5 font-display text-4xl leading-tight tracking-[-0.03em] md:text-6xl">Soluções que conectam <span className="gradient-text">marca e resultado.</span></h2>
-        <p className="mt-6 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-lg">Cada projeto combina clareza estratégica, design memorável e tecnologia de alta performance para acelerar o seu próximo nível.</p>
+        <p className="mt-6 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-lg">Each project combines strategic clarity, memorable design, and high-performance tech.</p>
       </Reveal>
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         {services.map((service, index) => <ServiceCard key={service.title} service={service} index={index} />)}
@@ -387,15 +376,15 @@ function Testimonials() {
 
 const Contact = memo(function Contact() {
   const [errors, setErrors] = useState<ContactErrors>({});
-  const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const lastSubmissionRef = useRef(0);
-  const cooldownTimerRef = useRef<number | null>(null);
+  const cooldownTimerRef, cooldownTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
     if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
   }, []);
 
-  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formTarget = event.currentTarget;
     const form = new FormData(formTarget);
@@ -403,10 +392,10 @@ const Contact = memo(function Contact() {
     const now = Date.now();
 
     if (honeypot) {
-      setErrors({ form: "Não foi possível processar o envio. Atualize a página e tente novamente." });
+      setErrors({ form: "Não foi possível processar o envio." });
       return;
     }
-    if (isCoolingDown || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
+    if (isSubmitting || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
       setErrors({ form: "Aguarde alguns segundos antes de enviar novamente." });
       return;
     }
@@ -419,19 +408,30 @@ const Contact = memo(function Contact() {
 
     lastSubmissionRef.current = now;
     setErrors({});
-    setIsCoolingDown(true);
-    
-    // Manda os dados para a API do NX-CRM
-    submitLeadToCrm(validated.values);
-    
-    alert("Mensagem enviada com sucesso!");
-    formTarget.reset();
+    setIsSubmitting(true);
+
+    try {
+      // Campos salvos exatamente como o seu CRM espera no Firestore ('leads')
+      await addDoc(collection(db, 'leads'), {
+        name: validated.values.name,
+        email: validated.values.email,
+        phone: validated.values.phone,
+        message: validated.values.message,
+        status: 'novo',
+        createdAt: serverTimestamp()
+      });
+      alert("Mensagem enviada com sucesso!");
+      formTarget.reset();
+    } catch (err) {
+      console.error("Erro ao salvar no Firestore:", err);
+      setErrors({ form: "Erro ao enviar a mensagem. Tente novamente." });
+    }
 
     cooldownTimerRef.current = window.setTimeout(() => {
-      setIsCoolingDown(false);
+      setIsSubmitting(false);
       cooldownTimerRef.current = null;
     }, FORM_COOLDOWN_MS);
-  }, [isCoolingDown]);
+  }, [isSubmitting]);
 
   return (
     <section id="contato" className="deferred-section section-shell py-20 md:py-28">
@@ -459,7 +459,7 @@ const Contact = memo(function Contact() {
               </div>
               <label className="grid gap-2 text-xs font-bold text-white/80">Telefone / WhatsApp<input className="form-field" type="tel" name="phone" autoComplete="tel" inputMode="tel" placeholder="(00) 00000-0000" maxLength={20} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} required />{errors.phone ? <span id="phone-error" className="form-error">{errors.phone}</span> : null}</label>
               <label className="grid gap-2 text-xs font-bold text-white/80">Mensagem / Necessidade<textarea className="form-field min-h-36 resize-y" name="message" placeholder="Conte brevemente sobre seu projeto, objetivo ou desafio..." minLength={10} maxLength={1_000} aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? "message-error" : undefined} required />{errors.message ? <span id="message-error" className="form-error">{errors.message}</span> : null}</label>
-              <button type="submit" disabled={isCoolingDown} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isCoolingDown ? "Enviando mensagem..." : "Enviar mensagem"}</button>
+              <button type="submit" disabled={isSubmitting} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isSubmitting ? "Enviando..." : "Enviar mensagem"}</button>
               {errors.form ? <p role="alert" className="text-center text-[11px] font-bold leading-5 text-red-300">{errors.form}</p> : null}
               <p className="text-center text-[10px] leading-5 text-muted">Os dados são validados e enviados com segurança.</p>
             </form>
