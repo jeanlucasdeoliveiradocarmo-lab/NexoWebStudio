@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
-import { createNxCrmLead } from "@/lib/nx-crm";
+import { createNxCrmLead, type NxCrmLeadInput } from "@/lib/nx-crm";
 
 export const runtime = "nodejs";
 
-const CLIENT_ID = "nexo-web-studio";
 const MAX_REQUEST_SIZE_BYTES = 16_384;
 const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s.'’-]{1,79}$/u;
 const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,185}\.[A-Za-z]{2,24}$/;
 
-type LeadRequest = {
-  cliente_id?: unknown;
-  nome?: unknown;
-  email?: unknown;
-  telefone?: unknown;
-  mensagem?: unknown;
-};
+type LeadRequest = Partial<NxCrmLeadInput> & { website?: unknown; page?: unknown };
 
 function stripControlCharacters(value: string) {
   return Array.from(value, (character) => {
@@ -42,17 +35,15 @@ function sanitizeMessage(value: unknown) {
 }
 
 function validateLead(body: LeadRequest) {
-  const clienteId = sanitizeSingleLine(body.cliente_id, 80);
   const lead = {
-    name: sanitizeSingleLine(body.nome, 80),
+    name: sanitizeSingleLine(body.name, 80),
     email: sanitizeSingleLine(body.email, 254).toLowerCase(),
-    phone: sanitizeSingleLine(body.telefone, 20),
-    message: sanitizeMessage(body.mensagem),
+    phone: sanitizeSingleLine(body.phone, 20),
+    message: sanitizeMessage(body.message),
   };
   const phoneDigits = lead.phone.replace(/\D/g, "");
 
   if (
-    clienteId !== CLIENT_ID ||
     !NAME_PATTERN.test(lead.name) ||
     !EMAIL_PATTERN.test(lead.email) ||
     phoneDigits.length < 10 ||
@@ -84,6 +75,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
+  if (sanitizeSingleLine(body.website, 120)) {
+    return NextResponse.json({ ok: true }, { status: 202 });
+  }
+
   const lead = validateLead(body);
   if (!lead) {
     return NextResponse.json({ ok: false, error: "invalid_lead" }, { status: 400 });
@@ -91,7 +86,7 @@ export async function POST(request: Request) {
 
   try {
     const leadId = await createNxCrmLead(lead, {
-      page: null,
+      page: sanitizeSingleLine(body.page, 200) || null,
       referrer: sanitizeSingleLine(request.headers.get("referer"), 500) || null,
       userAgent: sanitizeSingleLine(request.headers.get("user-agent"), 500) || null,
     });
