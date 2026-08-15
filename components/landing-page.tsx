@@ -1,8 +1,5 @@
 "use client";
 
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-
 import Image from "next/image";
 import { motion, useInView, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -81,6 +78,20 @@ function validateContactForm(form: FormData): { errors: ContactErrors; values: C
   if (values.message.length < 10) errors.message = "Descreva sua necessidade em pelo menos 10 caracteres.";
 
   return { errors, values };
+}
+
+// Envia os dados para a API do seu NX-CRM
+function submitLeadToCrm(values: ContactValues) {
+  void fetch("/api/leads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...values, website: "", page: window.location.pathname }),
+    keepalive: true,
+  }).then((response) => {
+    if (!response.ok) console.error("Não foi possível registrar o lead no NX-CRM.");
+  }).catch(() => {
+    console.error("Não foi possível registrar o lead no NX-CRM.");
+  });
 }
 
 function Reveal({
@@ -376,7 +387,7 @@ function Testimonials() {
 
 const Contact = memo(function Contact() {
   const [errors, setErrors] = useState<ContactErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
   const lastSubmissionRef = useRef(0);
   const cooldownTimerRef = useRef<number | null>(null);
 
@@ -384,7 +395,7 @@ const Contact = memo(function Contact() {
     if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
   }, []);
 
-  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formTarget = event.currentTarget;
     const form = new FormData(formTarget);
@@ -392,10 +403,10 @@ const Contact = memo(function Contact() {
     const now = Date.now();
 
     if (honeypot) {
-      setErrors({ form: "Não foi possível processar o envio." });
+      setErrors({ form: "Não foi possível processar o envio. Atualize a página e tente novamente." });
       return;
     }
-    if (isSubmitting || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
+    if (isCoolingDown || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
       setErrors({ form: "Aguarde alguns segundos antes de enviar novamente." });
       return;
     }
@@ -408,29 +419,19 @@ const Contact = memo(function Contact() {
 
     lastSubmissionRef.current = now;
     setErrors({});
-    setIsSubmitting(true);
-
-    try {
-      await addDoc(collection(db, 'leads'), {
-        nome: validated.values.name,
-        email: validated.values.email,
-        telefone: validated.values.phone,
-        necessidade: validated.values.message,
-        status: 'novo',
-        criadoEm: serverTimestamp()
-      });
-      alert("Informações enviadas com sucesso para o CRM!");
-      formTarget.reset();
-    } catch (err) {
-      console.error("Erro ao salvar no Firestore:", err);
-      setErrors({ form: "Erro ao salvar no CRM. Verifique a conexão." });
-    }
+    setIsCoolingDown(true);
+    
+    // Manda os dados para a API do NX-CRM
+    submitLeadToCrm(validated.values);
+    
+    alert("Mensagem enviada com sucesso!");
+    formTarget.reset();
 
     cooldownTimerRef.current = window.setTimeout(() => {
-      setIsSubmitting(false);
+      setIsCoolingDown(false);
       cooldownTimerRef.current = null;
     }, FORM_COOLDOWN_MS);
-  }, [isSubmitting]);
+  }, [isCoolingDown]);
 
   return (
     <section id="contato" className="deferred-section section-shell py-20 md:py-28">
@@ -440,10 +441,10 @@ const Contact = memo(function Contact() {
           <Reveal direction="left" className="relative z-10">
             <p className="eyebrow">Vamos conversar</p>
             <h2 className="mt-5 font-display text-4xl leading-tight tracking-[-0.03em] md:text-6xl">Pronto para dar o <span className="gradient-text">próximo passo?</span></h2>
-            <p className="mt-6 text-sm leading-7 text-muted sm:text-base sm:leading-8">Preencha os campos abaixo para enviar suas informações diretamente ao nosso CRM.</p>
+            <p className="mt-6 text-sm leading-7 text-muted sm:text-base sm:leading-8">Preencha os campos abaixo ou entre em contato diretamente pelo WhatsApp para agendar uma consulta.</p>
             <div className="mt-8 rounded-3xl border border-[#25D366]/25 bg-[#25D366]/8 p-5 sm:p-6">
               <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-2xl bg-[#25D366] text-white"><FaWhatsapp className="size-6" aria-hidden="true" /></div><div><p className="font-display text-lg">Prefere falar agora?</p><p className="text-[11px] text-muted sm:text-xs">Resposta rápida pelo WhatsApp</p></div></div>
-              <a href={whatsappUrl("Olá! Vim pelo site e quero falar com um especialista.")} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 py-4 text-xs font-bold text-white transition hover:-translate-y-1 hover:shadow-xl hover:shadow-[#25D366]/20 sm:text-sm"><CalendarCheck className="size-4" aria-hidden="true" />Falar no WhatsApp</a>
+              <a href={whatsappUrl("Olá! Preenchi o formulário no site e quero agendar uma consulta.")} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 py-4 text-xs font-bold text-white transition hover:-translate-y-1 hover:shadow-xl hover:shadow-[#25D366]/20 sm:text-sm"><CalendarCheck className="size-4" aria-hidden="true" />Agendar consulta agora</a>
               <p className="mt-4 text-center text-[11px] font-bold text-white/70">WhatsApp Business: (21) 99118-2709</p>
             </div>
           </Reveal>
@@ -458,9 +459,9 @@ const Contact = memo(function Contact() {
               </div>
               <label className="grid gap-2 text-xs font-bold text-white/80">Telefone / WhatsApp<input className="form-field" type="tel" name="phone" autoComplete="tel" inputMode="tel" placeholder="(00) 00000-0000" maxLength={20} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} required />{errors.phone ? <span id="phone-error" className="form-error">{errors.phone}</span> : null}</label>
               <label className="grid gap-2 text-xs font-bold text-white/80">Mensagem / Necessidade<textarea className="form-field min-h-36 resize-y" name="message" placeholder="Conte brevemente sobre seu projeto, objetivo ou desafio..." minLength={10} maxLength={1_000} aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? "message-error" : undefined} required />{errors.message ? <span id="message-error" className="form-error">{errors.message}</span> : null}</label>
-              <button type="submit" disabled={isSubmitting} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isSubmitting ? "Enviando dados..." : "Enviar informações para o CRM"}</button>
+              <button type="submit" disabled={isCoolingDown} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isCoolingDown ? "Enviando mensagem..." : "Enviar mensagem"}</button>
               {errors.form ? <p role="alert" className="text-center text-[11px] font-bold leading-5 text-red-300">{errors.form}</p> : null}
-              <p className="text-center text-[10px] leading-5 text-muted">Os dados são salvos diretamente no banco de dados do CRM com segurança.</p>
+              <p className="text-center text-[10px] leading-5 text-muted">Os dados são validados e enviados com segurança.</p>
             </form>
           </Reveal>
         </div>
