@@ -10,7 +10,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com",
   "frame-src https://www.google.com https://maps.google.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
