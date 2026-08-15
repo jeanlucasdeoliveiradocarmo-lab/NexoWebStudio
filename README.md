@@ -10,7 +10,6 @@ Landing page institucional desenvolvida com Next.js, React, TypeScript, Tailwind
 ## Executar localmente
 
 ```bash
-npm install firebase
 pnpm install
 pnpm dev
 ```
@@ -47,7 +46,7 @@ git push -u origin main
 3. Confirme o framework **Next.js** e mantenha as configurações automáticas.
 4. Clique em **Deploy**.
 
-O formulário valida e sanitiza os campos, registra o lead no NX-CRM pelo Firebase e abre a conversa formatada no WhatsApp Business. O registro acontece por uma rota de servidor e não atrasa nem altera o redirecionamento para o WhatsApp.
+O formulário valida e sanitiza os campos e envia o lead de forma assíncrona para a API interna do CRM em `/api/leads`. Após a confirmação da API, a página exibe uma mensagem de sucesso e limpa os campos, sem redirecionar o visitante para o WhatsApp.
 
 ## Configurar a integração NX-CRM / Firebase
 
@@ -61,6 +60,13 @@ O formulário valida e sanitiza os campos, registra o lead no NX-CRM pelo Fireba
 As credenciais são lidas exclusivamente no servidor. Não use o prefixo `NEXT_PUBLIC_` nessas variáveis.
 
 ## Personalização
+
+- Conteúdo e componentes: `components/landing-page.tsx`
+- Tema e estilos globais: `app/globals.css`
+- Fundo WebGL: `components/Topography.jsx`
+- Metadados e favicon: `app/layout.tsx`
+- Imagens: `public/`
+- Cabeçalhos de segurança: `next.config.ts`
 
 - Conteúdo e componentes: `components/landing-page.tsx`
 - Tema e estilos globais: `app/globals.css`
