@@ -3,7 +3,6 @@ import { createNxCrmLead } from "@/lib/nx-crm";
 
 export const runtime = "nodejs";
 
-const CLIENT_ID = "nexo-web-studio";
 const MAX_REQUEST_SIZE_BYTES = 16_384;
 const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s.'’-]{1,79}$/u;
 const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,185}\.[A-Za-z]{2,24}$/;
@@ -52,7 +51,7 @@ function validateLead(body: LeadRequest) {
   const phoneDigits = lead.phone.replace(/\D/g, "");
 
   if (
-    clienteId !== CLIENT_ID ||
+    clienteId !== "nexo-web-studio" ||
     !NAME_PATTERN.test(lead.name) ||
     !EMAIL_PATTERN.test(lead.email) ||
     phoneDigits.length < 10 ||
