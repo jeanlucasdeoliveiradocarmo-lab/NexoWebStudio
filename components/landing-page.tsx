@@ -1,8 +1,5 @@
 "use client";
 
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-
 import Image from "next/image";
 import { motion, useInView, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -377,12 +374,8 @@ function Testimonials() {
 const Contact = memo(function Contact() {
   const [errors, setErrors] = useState<ContactErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const lastSubmissionRef = useRef(0);
-  const cooldownTimerRef = useRef<number | null>(null);
-
-  useEffect(() => () => {
-    if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
-  }, []);
 
   const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -391,8 +384,10 @@ const Contact = memo(function Contact() {
     const honeypot = sanitizeSingleLine(form.get("website"), 120);
     const now = Date.now();
 
+    setSuccessMessage("");
+
     if (honeypot) {
-      setErrors({ form: "Não foi possível processar o envio." });
+      setErrors({ form: "Não foi possível processar o envio. Atualize a página e tente novamente." });
       return;
     }
     if (isSubmitting || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
@@ -406,30 +401,35 @@ const Contact = memo(function Contact() {
       return;
     }
 
-    lastSubmissionRef.current = now;
     setErrors({});
     setIsSubmitting(true);
 
     try {
-      await addDoc(collection(db, 'leads'), {
-        name: validated.values.name,
-        email: validated.values.email,
-        phone: validated.values.phone,
-        message: validated.values.message,
-        status: 'novo',
-        createdAt: serverTimestamp()
+      const response = await fetch("/api/v1/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cliente_id: "nexo-web-studio",
+          nome: validated.values.name,
+          email: validated.values.email,
+          telefone: validated.values.phone,
+          mensagem: validated.values.message,
+        }),
       });
-      alert("Mensagem enviada com sucesso!");
-      formTarget.reset();
-    } catch (err) {
-      console.error("Erro ao salvar no Firestore:", err);
-      setErrors({ form: "Erro ao enviar a mensagem. Tente novamente." });
-    }
 
-    cooldownTimerRef.current = window.setTimeout(() => {
+      if (!response.ok) {
+        throw new Error(`Falha ao enviar lead: HTTP ${response.status}`);
+      }
+
+      lastSubmissionRef.current = Date.now();
+      formTarget.reset();
+      setSuccessMessage("Mensagem enviada com sucesso! Em breve entraremos em contato.");
+    } catch (error) {
+      console.error("Erro ao enviar lead para o CRM:", error);
+      setErrors({ form: "Não foi possível enviar sua mensagem. Tente novamente." });
+    } finally {
       setIsSubmitting(false);
-      cooldownTimerRef.current = null;
-    }, FORM_COOLDOWN_MS);
+    }
   }, [isSubmitting]);
 
   return (
@@ -460,7 +460,8 @@ const Contact = memo(function Contact() {
               <label className="grid gap-2 text-xs font-bold text-white/80">Mensagem / Necessidade<textarea className="form-field min-h-36 resize-y" name="message" placeholder="Conte brevemente sobre seu projeto, objetivo ou desafio..." minLength={10} maxLength={1_000} aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? "message-error" : undefined} required />{errors.message ? <span id="message-error" className="form-error">{errors.message}</span> : null}</label>
               <button type="submit" disabled={isSubmitting} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isSubmitting ? "Enviando..." : "Enviar mensagem"}</button>
               {errors.form ? <p role="alert" className="text-center text-[11px] font-bold leading-5 text-red-300">{errors.form}</p> : null}
-              <p className="text-center text-[10px] leading-5 text-muted">Os dados são validados e enviados com segurança.</p>
+              {successMessage ? <p role="status" aria-live="polite" className="text-center text-[11px] font-bold leading-5 text-emerald-300">{successMessage}</p> : null}
+              <p className="text-center text-[10px] leading-5 text-muted">Os dados são validados e enviados com segurança para o nosso CRM.</p>
             </form>
           </Reveal>
         </div>
