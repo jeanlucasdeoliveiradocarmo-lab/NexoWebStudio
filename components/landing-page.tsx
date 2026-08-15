@@ -1,5 +1,7 @@
 "use client";
-
+import { useState } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import Image from "next/image";
 import { motion, useInView, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -91,6 +93,139 @@ function submitLeadToCrm(values: ContactValues) {
   }).catch(() => {
     console.error("Não foi possível registrar o lead no NX-CRM.");
   });
+}
+
+function Reveal({
+  children,
+  direction = "left",
+  className,
+  delay = 0,
+}: {
+  children: ReactNode;
+  direction?: "left" | "right";
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { amount: 0.18 });
+  const reduceMotion = useReducedMotion();
+  const offset = direction === "left" ? -72 : 72;
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={false}
+      animate={reduceMotion ? { x: 0, opacity: 1 } : { x: isInView ? 0 : offset, opacity: isInView ? 1 : 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.62, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={`motion-reveal ${className ?? ""}`.trim()}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function Spotlight() {
+  const pointerX = useMotionValue(-300);"use client";
+
+// 1. AS DUAS LINHAS DO FIREBASE FORAM ADICIONADAS AQUI:
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+import Image from "next/image";
+import { motion, useInView, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
+import {
+  ArrowDown,
+  ArrowUpRight,
+  BadgeCheck,
+  CalendarCheck,
+  CheckCircle2,
+  Gauge,
+  LayoutTemplate,
+  MapPin,
+  MessageCircle,
+  PanelsTopLeft,
+  Quote,
+  Send,
+  Sparkles,
+  Star,
+} from "lucide-react";
+import { FaGoogle, FaInstagram, FaLinkedinIn, FaWhatsapp } from "react-icons/fa";
+import { memo, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Topography from "./Topography";
+
+const whatsappBase = "https://wa.me/5521991182709";
+const googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=Rua%20Carolina%20Ferreira%2C%20192";
+const instagramUrl = "https://www.instagram.com/nexowebstudio.ofc/";
+const FORM_COOLDOWN_MS = 8_000;
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s.'’-]{1,79}$/u;
+const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,185}\.[A-Za-z]{2,24}$/;
+
+type ContactField = "name" | "email" | "phone" | "message" | "form";
+type ContactErrors = Partial<Record<ContactField, string>>;
+type ContactValues = Record<Exclude<ContactField, "form">, string>;
+
+function whatsappUrl(message: string) {
+  return `${whatsappBase}?text=${encodeURIComponent(message)}`;
+}
+
+function stripControlCharacters(value: string) {
+  return Array.from(value, (character) => {
+    const code = character.charCodeAt(0);
+    return code === 9 || code === 10 || (code >= 32 && code !== 127) ? character : "";
+  }).join("");
+}
+
+function sanitizeSingleLine(value: FormDataEntryValue | null, maxLength: number) {
+  return stripControlCharacters(String(value ?? "").normalize("NFKC"))
+    .replace(/[<>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function sanitizeMessage(value: FormDataEntryValue | null) {
+  return stripControlCharacters(String(value ?? "").normalize("NFKC"))
+    .replace(/\r\n?/g, "\n")
+    .replace(/[<>]/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 1_000);
+}
+
+function validateContactForm(form: FormData): { errors: ContactErrors; values: ContactValues } {
+  const values = {
+    name: sanitizeSingleLine(form.get("name"), 80),
+    email: sanitizeSingleLine(form.get("email"), 254).toLowerCase(),
+    phone: sanitizeSingleLine(form.get("phone"), 20),
+    message: sanitizeMessage(form.get("message")),
+  };
+  const errors: ContactErrors = {};
+  const phoneDigits = values.phone.replace(/\D/g, "");
+
+  if (!NAME_PATTERN.test(values.name)) errors.name = "Informe um nome válido com pelo menos 2 caracteres.";
+  if (!EMAIL_PATTERN.test(values.email)) errors.email = "Informe um e-mail válido.";
+  if (phoneDigits.length < 10 || phoneDigits.length > 13) errors.phone = "Informe um telefone com DDD válido.";
+  if (values.message.length < 10) errors.message = "Descreva sua necessidade em pelo menos 10 caracteres.";
+
+  return { errors, values };
+}
+
+// 2. A FUNÇÃO DE ENVIO FOI ALTERADA PARA SALVAR DIRETO NO FIREBASE AQUI:
+async function submitLeadToCrm(values: ContactValues) {
+  try {
+    await addDoc(collection(db, 'leads'), {
+      nome: values.name,
+      email: values.email,
+      telefone: values.phone,
+      necessidade: values.message,
+      status: 'novo',
+      criadoEm: serverTimestamp()
+    });
+    console.log("Lead salvo com sucesso no CRM!");
+  } catch (erro) {
+    console.error("Não foi possível registrar o lead no Firebase.", erro);
+  }
 }
 
 function Reveal({
@@ -420,7 +555,11 @@ const Contact = memo(function Contact() {
     lastSubmissionRef.current = now;
     setErrors({});
     setIsCoolingDown(true);
+    
+    // AQUI ELE CHAMA A FUNÇÃO NOVA QUE VAI SALVAR NO FIREBASE EM SEGUNDO PLANO
     submitLeadToCrm(validated.values);
+    
+    // E AQUI ELE JÁ ABRE O SEU WHATSAPP NA HORA
     window.open(whatsappUrl(message), "_blank", "noopener,noreferrer");
     cooldownTimerRef.current = window.setTimeout(() => {
       setIsCoolingDown(false);
