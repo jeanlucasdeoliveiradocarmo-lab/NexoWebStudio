@@ -411,11 +411,13 @@ const Contact = memo(function Contact() {
     setIsSubmitting(true);
 
     try {
+      // SALVANDO EXATAMENTE COM OS CAMPOS QUE O SEU CRM ESPERA
       await addDoc(collection(db, 'leads'), {
-        name: validated.values.name,
+        cliente_id: "nexo-web-studio",
+        nome: validated.values.name,
         email: validated.values.email,
-        phone: validated.values.phone,
-        message: validated.values.message,
+        telefone: validated.values.phone,
+        mensagem: validated.values.message,
         status: 'novo',
         createdAt: serverTimestamp()
       });
