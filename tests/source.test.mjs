@@ -3,7 +3,21 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const landingUrl = new URL("../components/landing-page.tsx", import.meta.url);
-const leadsRouteUrl = new URL("../app/api/v1/leads/route.ts", import.meta.url);
+const leadsRouteUrl = new URL("../app/api/leads/route.ts", import.meta.url);
+const homePageUrl = new URL("../app/page.tsx", import.meta.url);
+const rootLayoutUrl = new URL("../app/layout.tsx", import.meta.url);
+
+test("expõe a landing page na raiz do App Router", async () => {
+  const [homePage, rootLayout] = await Promise.all([
+    readFile(homePageUrl, "utf8"),
+    readFile(rootLayoutUrl, "utf8"),
+  ]);
+
+  assert.match(homePage, /import\s+\{\s*LandingPage\s*\}\s+from\s+["']@\/components\/landing-page["']/);
+  assert.match(homePage, /return\s+<LandingPage\s*\/>/);
+  assert.match(rootLayout, /<html\s+lang="pt-BR"/);
+  assert.match(rootLayout, /<body[^>]*>\{children\}<\/body>/);
+});
 
 test("protege links externos e mensagens do WhatsApp", async () => {
   const landing = await readFile(landingUrl, "utf8");
@@ -24,7 +38,7 @@ test("envia o formulário ao endpoint interno do CRM com o contrato esperado", a
     readFile(leadsRouteUrl, "utf8"),
   ]);
 
-  assert.match(landing, /await fetch\("\/api\/v1\/leads"/);
+  assert.match(landing, /await fetch\("\/api\/leads"/);
   assert.match(landing, /cliente_id:\s*"nexo-web-studio"/);
   assert.match(landing, /nome:\s*validated\.values\.name/);
   assert.match(landing, /telefone:\s*validated\.values\.phone/);
