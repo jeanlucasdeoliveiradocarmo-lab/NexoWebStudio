@@ -318,7 +318,7 @@ function Services() {
       <Reveal direction="left" className="max-w-3xl">
         <p className="eyebrow">O que fazemos</p>
         <h2 className="mt-5 font-display text-4xl leading-tight tracking-[-0.03em] md:text-6xl">Soluções que conectam <span className="gradient-text">marca e resultado.</span></h2>
-        <p className="mt-6 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-lg">Each project combines strategic clarity, memorable design, and high-performance tech.</p>
+        <p className="mt-6 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-lg">Cada projeto combina clareza estratégica, design memorável e tecnologia de alta performance para acelerar o seu próximo nível.</p>
       </Reveal>
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         {services.map((service, index) => <ServiceCard key={service.title} service={service} index={index} />)}
@@ -378,7 +378,7 @@ const Contact = memo(function Contact() {
   const [errors, setErrors] = useState<ContactErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const lastSubmissionRef = useRef(0);
-  const cooldownTimerRef, cooldownTimerRef = useRef<number | null>(null);
+  const cooldownTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
     if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
@@ -411,7 +411,6 @@ const Contact = memo(function Contact() {
     setIsSubmitting(true);
 
     try {
-      // Campos salvos exatamente como o seu CRM espera no Firestore ('leads')
       await addDoc(collection(db, 'leads'), {
         name: validated.values.name,
         email: validated.values.email,
