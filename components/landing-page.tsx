@@ -405,7 +405,7 @@ const Contact = memo(function Contact() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/v1/leads", {
+      const response = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
