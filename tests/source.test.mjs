@@ -3,8 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const landingUrl = new URL("../components/landing-page.tsx", import.meta.url);
-const leadsRouteUrl = new URL("../app/api/leads/route.ts", import.meta.url);
-const crmAdapterUrl = new URL("../lib/nx-crm.ts", import.meta.url);
+const leadsRouteUrl = new URL("../app/api/v1/leads/route.ts", import.meta.url);
 
 test("protege links externos e mensagens do WhatsApp", async () => {
   const landing = await readFile(landingUrl, "utf8");
@@ -19,21 +18,28 @@ test("protege links externos e mensagens do WhatsApp", async () => {
   assert.match(landing, /FORM_COOLDOWN_MS/);
 });
 
-test("envia o formulário ao NX-CRM sem alterar o fluxo do WhatsApp", async () => {
-  const [landing, route, adapter] = await Promise.all([
+test("envia o formulário ao endpoint interno do CRM com o contrato esperado", async () => {
+  const [landing, route] = await Promise.all([
     readFile(landingUrl, "utf8"),
     readFile(leadsRouteUrl, "utf8"),
-    readFile(crmAdapterUrl, "utf8"),
   ]);
 
-  assert.match(landing, /fetch\("\/api\/leads"/);
-  assert.match(landing, /keepalive:\s*true/);
-  assert.match(landing, /submitLeadToCrm\(validated\.values\)[\s\S]*window\.open/);
-  assert.match(route, /export const runtime = "nodejs"/);
-  assert.match(route, /createNxCrmLead/);
-  assert.match(adapter, /3EQx6sXtRzWmGpvhGPQeXAsBXOI3/);
-  assert.match(adapter, /FieldValue\.serverTimestamp/);
+  assert.match(landing, /await fetch\("\/api\/v1\/leads"/);
+  assert.match(landing, /cliente_id:\s*"nexo-web-studio"/);
+  assert.match(landing, /nome:\s*validated\.values\.name/);
+  assert.match(landing, /telefone:\s*validated\.values\.phone/);
+  assert.match(landing, /mensagem:\s*validated\.values\.message/);
+  assert.match(landing, /if \(!response\.ok\)/);
+  assert.match(landing, /formTarget\.reset\(\)/);
+  assert.match(landing, /Enviando\.\.\./);
+  assert.doesNotMatch(landing, /submitLeadToCrm/);
   assert.doesNotMatch(landing, /FIREBASE_PRIVATE_KEY/);
+  assert.match(route, /export const runtime = "nodejs"/);
+  assert.match(route, /body\.cliente_id/);
+  assert.match(route, /body\.nome/);
+  assert.match(route, /body\.telefone/);
+  assert.match(route, /body\.mensagem/);
+  assert.match(route, /createNxCrmLead/);
 });
 
 test("mantém as otimizações de animação e acessibilidade", async () => {
