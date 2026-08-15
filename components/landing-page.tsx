@@ -83,22 +83,6 @@ function validateContactForm(form: FormData): { errors: ContactErrors; values: C
   return { errors, values };
 }
 
-async function submitLeadToCrm(values: ContactValues) {
-  try {
-    await addDoc(collection(db, 'leads'), {
-      nome: values.name,
-      email: values.email,
-      telefone: values.phone,
-      necessidade: values.message,
-      status: 'novo',
-      criadoEm: serverTimestamp()
-    });
-    console.log("Lead salvo com sucesso no CRM!");
-  } catch (erro) {
-    console.error("Não foi possível registrar o lead no Firebase.", erro);
-  }
-}
-
 function Reveal({
   children,
   direction = "left",
@@ -392,7 +376,7 @@ function Testimonials() {
 
 const Contact = memo(function Contact() {
   const [errors, setErrors] = useState<ContactErrors>({});
-  const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const lastSubmissionRef = useRef(0);
   const cooldownTimerRef = useRef<number | null>(null);
 
@@ -400,17 +384,18 @@ const Contact = memo(function Contact() {
     if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
   }, []);
 
-  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formTarget = event.currentTarget;
+    const form = new FormData(formTarget);
     const honeypot = sanitizeSingleLine(form.get("website"), 120);
     const now = Date.now();
 
     if (honeypot) {
-      setErrors({ form: "Não foi possível processar o envio. Atualize a página e tente novamente." });
+      setErrors({ form: "Não foi possível processar o envio." });
       return;
     }
-    if (isCoolingDown || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
+    if (isSubmitting || now - lastSubmissionRef.current < FORM_COOLDOWN_MS) {
       setErrors({ form: "Aguarde alguns segundos antes de enviar novamente." });
       return;
     }
@@ -421,20 +406,31 @@ const Contact = memo(function Contact() {
       return;
     }
 
-    const { name, email, phone, message: need } = validated.values;
-    const message = `Olá! Preenchi o formulário no site e quero iniciar uma conversa.\n\nNome: ${name}\nE-mail: ${email}\nTelefone/WhatsApp: ${phone}\nNecessidade: ${need}`;
     lastSubmissionRef.current = now;
     setErrors({});
-    setIsCoolingDown(true);
-    
-    submitLeadToCrm(validated.values);
-    
-    window.open(whatsappUrl(message), "_blank", "noopener,noreferrer");
+    setIsSubmitting(true);
+
+    try {
+      await addDoc(collection(db, 'leads'), {
+        nome: validated.values.name,
+        email: validated.values.email,
+        telefone: validated.values.phone,
+        necessidade: validated.values.message,
+        status: 'novo',
+        criadoEm: serverTimestamp()
+      });
+      alert("Informações enviadas com sucesso para o CRM!");
+      formTarget.reset();
+    } catch (err) {
+      console.error("Erro ao salvar no Firestore:", err);
+      setErrors({ form: "Erro ao salvar no CRM. Verifique a conexão." });
+    }
+
     cooldownTimerRef.current = window.setTimeout(() => {
-      setIsCoolingDown(false);
+      setIsSubmitting(false);
       cooldownTimerRef.current = null;
     }, FORM_COOLDOWN_MS);
-  }, [isCoolingDown]);
+  }, [isSubmitting]);
 
   return (
     <section id="contato" className="deferred-section section-shell py-20 md:py-28">
@@ -444,10 +440,10 @@ const Contact = memo(function Contact() {
           <Reveal direction="left" className="relative z-10">
             <p className="eyebrow">Vamos conversar</p>
             <h2 className="mt-5 font-display text-4xl leading-tight tracking-[-0.03em] md:text-6xl">Pronto para dar o <span className="gradient-text">próximo passo?</span></h2>
-            <p className="mt-6 text-sm leading-7 text-muted sm:text-base sm:leading-8">Preencha os campos abaixo ou entre em contato diretamente pelo WhatsApp para agendar uma consulta.</p>
+            <p className="mt-6 text-sm leading-7 text-muted sm:text-base sm:leading-8">Preencha os campos abaixo para enviar suas informações diretamente ao nosso CRM.</p>
             <div className="mt-8 rounded-3xl border border-[#25D366]/25 bg-[#25D366]/8 p-5 sm:p-6">
               <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-2xl bg-[#25D366] text-white"><FaWhatsapp className="size-6" aria-hidden="true" /></div><div><p className="font-display text-lg">Prefere falar agora?</p><p className="text-[11px] text-muted sm:text-xs">Resposta rápida pelo WhatsApp</p></div></div>
-              <a href={whatsappUrl("Olá! Preenchi o formulário no site e quero agendar uma consulta.")} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 py-4 text-xs font-bold text-white transition hover:-translate-y-1 hover:shadow-xl hover:shadow-[#25D366]/20 sm:text-sm"><CalendarCheck className="size-4" aria-hidden="true" />Agendar consulta agora</a>
+              <a href={whatsappUrl("Olá! Vim pelo site e quero falar com um especialista.")} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 py-4 text-xs font-bold text-white transition hover:-translate-y-1 hover:shadow-xl hover:shadow-[#25D366]/20 sm:text-sm"><CalendarCheck className="size-4" aria-hidden="true" />Falar no WhatsApp</a>
               <p className="mt-4 text-center text-[11px] font-bold text-white/70">WhatsApp Business: (21) 99118-2709</p>
             </div>
           </Reveal>
@@ -462,9 +458,9 @@ const Contact = memo(function Contact() {
               </div>
               <label className="grid gap-2 text-xs font-bold text-white/80">Telefone / WhatsApp<input className="form-field" type="tel" name="phone" autoComplete="tel" inputMode="tel" placeholder="(00) 00000-0000" maxLength={20} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "phone-error" : undefined} required />{errors.phone ? <span id="phone-error" className="form-error">{errors.phone}</span> : null}</label>
               <label className="grid gap-2 text-xs font-bold text-white/80">Mensagem / Necessidade<textarea className="form-field min-h-36 resize-y" name="message" placeholder="Conte brevemente sobre seu projeto, objetivo ou desafio..." minLength={10} maxLength={1_000} aria-invalid={Boolean(errors.message)} aria-describedby={errors.message ? "message-error" : undefined} required />{errors.message ? <span id="message-error" className="form-error">{errors.message}</span> : null}</label>
-              <button type="submit" disabled={isCoolingDown} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isCoolingDown ? "Conversa iniciada — aguarde" : "Enviar mensagem e iniciar conversa"}</button>
+              <button type="submit" disabled={isSubmitting} className="cta-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"><Send className="size-4" aria-hidden="true" />{isSubmitting ? "Enviando dados..." : "Enviar informações para o CRM"}</button>
               {errors.form ? <p role="alert" className="text-center text-[11px] font-bold leading-5 text-red-300">{errors.form}</p> : null}
-              <p className="text-center text-[10px] leading-5 text-muted">Os dados são validados e organizados localmente antes do redirecionamento seguro para o WhatsApp.</p>
+              <p className="text-center text-[10px] leading-5 text-muted">Os dados são salvos diretamente no banco de dados do CRM com segurança.</p>
             </form>
           </Reveal>
         </div>
